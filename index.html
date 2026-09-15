@@ -400,6 +400,7 @@ body{padding-bottom:78px;}
   <button class="nav-btn" onclick="showTab('whatsapp')">💬 WhatsApp</button>
   <button class="nav-btn" onclick="showTab('erp')">📊 ERP</button>
   <button class="nav-btn" onclick="showTab('team')">💅 Team</button>
+  <button class="nav-btn" onclick="showTab('catalog')">📋 Rate List</button>
   <button class="nav-btn" onclick="showTab('settings')">⚙️ Settings</button>
 </div>
 
@@ -419,6 +420,7 @@ body{padding-bottom:78px;}
     <div class="bb-add-menu" id="quickAddMenu" style="display:none;">
       <button onclick="quickAddChoice('appointment')">📅 New Appointment</button>
       <button onclick="quickAddChoice('purchase')">🧾 New Purchase Entry</button>
+      <button onclick="quickAddChoice('sell')">🛒 Sell Product</button>
     </div>
   </div>
   <button class="bb-btn" onclick="exitApp()">
@@ -474,7 +476,19 @@ body{padding-bottom:78px;}
     <h2>📦 Product Inventory</h2>
     <button class="btn btn-blue" onclick="openModal('inventoryModal')">➕ Product Add</button>
   </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+    <button class="btn btn-sm btn-green" onclick="openSellModal()">🛒 Sell Product</button>
+    <button class="btn btn-sm btn-gray" onclick="toggleInventoryFilterPanel()">🔍 Filter Sales</button>
+  </div>
+  <div class="card" id="inventoryFilterPanel" style="display:none;margin-bottom:14px;"></div>
   <div id="lowStockAlert"></div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title" style="margin-bottom:10px;">
+      <h3 style="font-size:16px;">💰 Sales Report <span style="font-size:11px;font-weight:500;color:#8b6f5e;" id="inventoryFilterLabel"></span></h3>
+    </div>
+    <div class="stats-row" id="salesStats" style="margin-bottom:10px;"></div>
+    <div id="salesReportList"></div>
+  </div>
   <div class="grid-2" id="inventoryGrid"></div>
 </div>
 
@@ -571,6 +585,14 @@ body{padding-bottom:78px;}
     </div>
   </div>
 
+  <!-- Balance / Pending Payments Ledger -->
+  <div class="card" style="margin-bottom:14px;">
+    <h3 style="font-size:17px;margin-bottom:10px;">💳 Balance / Pending Payments</h3>
+    <input class="form-input" id="balanceLedgerSearch" placeholder="🔍 Search by client name" style="margin-bottom:12px;" oninput="renderBalanceLedger()">
+    <div id="balanceLedgerTotal" style="font-weight:800;margin-bottom:10px;"></div>
+    <div id="balanceLedgerList"></div>
+  </div>
+
   <!-- Monthly P&L -->
   <div class="card" style="margin-bottom:14px;">
     <h3 style="font-size:17px;margin-bottom:14px;">📈 Profit & Loss - April 2026</h3>
@@ -600,15 +622,28 @@ body{padding-bottom:78px;}
   <div class="section-title">
     <h2>💅 Team Performance</h2>
     <div style="display:flex;gap:8px;">
+      <button class="btn btn-gray" onclick="toggleTeamFilterPanel()">🔍 Filter</button>
       <button class="btn btn-rose" onclick="openModal('staffModal')">➕ Staff Add</button>
       <button class="btn btn-gray" onclick="openAttendanceModal()" title="Attendance"><span class="bk-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 15 11 17 15 13"/></svg></span></button>
     </div>
   </div>
+  <div class="card" id="teamFilterPanel" style="display:none;margin-bottom:14px;"></div>
+  <div style="font-size:12px;color:#8b6f5e;margin-bottom:10px;" id="teamFilterLabel"></div>
   <div class="grid-2" id="teamCards" style="margin-bottom:20px;"></div>
   <div class="card">
     <h3 style="font-size:17px;margin-bottom:14px;">📊 Revenue Comparison</h3>
     <div id="teamRevenue"></div>
   </div>
+</div>
+
+<!-- ========== CATALOG / RATE LIST ========== -->
+<div class="tab-content" id="tab-catalog">
+  <div class="section-title">
+    <h2>📋 Rate List</h2>
+    <button class="btn btn-rose" onclick="openCatalogModal()">➕ Add Service</button>
+  </div>
+  <input class="form-input" id="catalogSearch" placeholder="🔍 Search service or category" style="margin-bottom:14px;" oninput="renderCatalog()">
+  <div id="catalogList"></div>
 </div>
 
 <!-- ========== SETTINGS ========== -->
@@ -771,6 +806,22 @@ body{padding-bottom:78px;}
       <option value="UPI">📱 UPI</option>
       <option value="Card">💳 Card</option>
     </select>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+      <input type="checkbox" id="b_hasBalance" onchange="toggleBalanceFields()" style="width:18px;height:18px;">
+      <label for="b_hasBalance" style="font-size:13px;font-weight:600;color:var(--brown);">Client has balance due (partial payment)</label>
+    </div>
+    <div id="b_balanceFields" style="display:none;margin-top:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Amount Paid Now (₹)</label>
+          <input class="form-input" id="b_amountPaid" type="number" oninput="onBalancePaidChange()">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Balance Due (₹)</label>
+          <input class="form-input" id="b_balanceDue" type="number" readonly style="background:var(--light);">
+        </div>
+      </div>
+    </div>
     <button class="btn btn-green" style="width:100%;margin-top:10px;" onclick="saveBooking('completed')">✅ Confirm Checkout</button>
   </div>
 
@@ -786,6 +837,52 @@ body{padding-bottom:78px;}
 </div>
 </div>
 
+<!-- CATALOG (RATE LIST) MODAL -->
+<div class="overlay" id="catalogModal">
+<div class="modal bk-modal">
+  <div class="bk-header">
+    <div style="font-family:'DM Sans',sans-serif;font-size:21px;font-weight:800;letter-spacing:-.2px;color:var(--dark);" id="cat_modalTitle">Add Service</div>
+    <button class="bk-close" onclick="closeModal('catalogModal')"><span class="bk-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></button>
+  </div>
+
+  <div class="bk-card" style="padding:4px 16px;">
+    <div class="ct-field">
+      <div class="ct-field-icon"><span class="bk-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span></div>
+      <input id="cat_name" placeholder="Service name *" style="flex:1;border:none;background:none;font-size:14px;font-weight:600;color:var(--dark);font-family:'DM Sans',sans-serif;padding:4px 0;">
+    </div>
+  </div>
+
+  <div class="bk-card" style="padding:4px 16px;">
+    <div class="ct-field">
+      <div class="ct-field-icon"><span class="bk-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span></div>
+      <select id="cat_category" onchange="onCatalogCategoryChange()" style="flex:1;border:none;background:none;font-size:14px;font-weight:600;color:var(--dark);font-family:'DM Sans',sans-serif;padding:4px 0;"></select>
+    </div>
+    <div class="ct-field" id="cat_newCategoryRow" style="display:none;border-top:1px solid var(--light);">
+      <div class="ct-field-icon"><span class="bk-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></div>
+      <input id="cat_newCategory" placeholder="New category name" style="flex:1;border:none;background:none;font-size:14px;font-weight:600;color:var(--dark);font-family:'DM Sans',sans-serif;padding:4px 0;">
+    </div>
+  </div>
+
+  <div class="bk-card bk-card-stack">
+    <div class="bk-row">
+      <span class="bk-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+      <span>Price (₹)</span>
+      <input type="number" id="cat_price" class="bk-time-input" style="margin-left:auto;text-align:right;width:100px;" placeholder="0">
+    </div>
+    <div class="bk-row bk-row-sub">
+      <span class="bk-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+      <span>Duration (min)</span>
+      <input type="number" id="cat_duration" class="bk-time-input" style="margin-left:auto;text-align:right;width:100px;" placeholder="30">
+    </div>
+  </div>
+
+  <div class="bk-bottom-bar">
+    <button class="btn btn-gray bk-checkout-btn" onclick="closeModal('catalogModal')">Cancel</button>
+    <button class="btn btn-rose bk-save-btn" id="cat_saveBtn" onclick="saveCatalogService()">✅ Save Service</button>
+  </div>
+</div>
+</div>
+
 <!-- INVENTORY MODAL -->
 <div class="overlay" id="inventoryModal">
 <div class="modal">
@@ -796,17 +893,37 @@ body{padding-bottom:78px;}
     </div>
     <input type="file" id="i_imageFile" accept="image/*" style="display:none;" onchange="handleInventoryImage(this)">
     <div style="font-size:11px;color:#8b6f5e;">Tap to add product photo</div>
+    <div id="i_imgAdjustRow" style="display:none;justify-content:center;gap:6px;margin-top:8px;">
+      <button type="button" class="btn btn-sm btn-gray" onclick="adjustInventoryImage('left')">⬅️</button>
+      <button type="button" class="btn btn-sm btn-gray" onclick="adjustInventoryImage('up')">⬆️</button>
+      <button type="button" class="btn btn-sm btn-gray" onclick="adjustInventoryImage('down')">⬇️</button>
+      <button type="button" class="btn btn-sm btn-gray" onclick="adjustInventoryImage('right')">➡️</button>
+      <button type="button" class="btn btn-sm btn-gray" onclick="adjustInventoryImage('reset')">↺ Reset</button>
+    </div>
   </div>
   <div class="form-group">
     <label class="form-label">Product Name *</label>
     <input class="form-input" id="i_name" placeholder="Product name">
   </div>
+  <div class="form-group">
+    <label class="form-label">Product Type *</label>
+    <select class="form-input" id="i_usageType">
+      <option value="sale">For Sale (retail to clients)</option>
+      <option value="salon">Salon Use Only (in-house)</option>
+      <option value="both">Both (salon use + for sale)</option>
+    </select>
+  </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
     <div class="form-group">
       <label class="form-label">Category</label>
       <select class="form-input" id="i_cat">
-        <option>Hair Color</option><option>Shampoo</option><option>Skincare</option>
-        <option>Nail</option><option>Makeup</option><option>Other</option>
+        <option>Face Wash</option><option>Face Serum</option><option>Hair Serum</option>
+        <option>SBF</option><option>Night Cream</option><option>Shampoo</option>
+        <option>Conditioner</option><option>Hair Mask</option><option>Hair Pack</option>
+        <option>Colour Tubes</option><option>Developer</option><option>Stick-on Nails</option>
+        <option>Wax</option><option>Hair Oil</option><option>Massage Oil</option>
+        <option>Hair Care</option><option>Skincare</option><option>Pedicure & Manicure Product</option>
+        <option>Other</option>
       </select>
     </div>
     <div class="form-group">
@@ -837,11 +954,70 @@ body{padding-bottom:78px;}
 </div>
 </div>
 
+<!-- SELL PRODUCT MODAL -->
+<div class="overlay" id="sellProductModal" style="z-index:850;">
+<div class="modal">
+  <h3>🛒 Sell Product</h3>
+  <div class="form-group">
+    <label class="form-label">Product *</label>
+    <select class="form-input" id="sp_product" onchange="onSellProductChange()"></select>
+    <div style="font-size:11.5px;color:#8b6f5e;margin-top:4px;" id="sp_stockNote"></div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Client (optional)</label>
+    <input class="form-input" id="sp_clientName" placeholder="Client name (leave empty for walk-in)">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Client Phone</label>
+    <input class="form-input" id="sp_clientPhone" type="tel" placeholder="Phone number">
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div class="form-group">
+      <label class="form-label">Quantity *</label>
+      <input class="form-input" id="sp_qty" type="number" value="1" min="1" onchange="onSellQtyChange()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Total Amount (₹) *</label>
+      <input class="form-input" id="sp_amount" type="number">
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input class="form-input" id="sp_date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Payment Mode</label>
+      <select class="form-input" id="sp_payment">
+        <option value="Cash">💵 Cash</option>
+        <option value="UPI">📱 UPI</option>
+        <option value="Card">💳 Card</option>
+      </select>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:6px;">
+    <button class="btn btn-gray" style="flex:1;" onclick="closeModal('sellProductModal')">Cancel</button>
+    <button class="btn btn-green" style="flex:2;" onclick="confirmSellProduct()">✅ Record Sale</button>
+  </div>
+</div>
+</div>
+
+<!-- PRODUCT SALES HISTORY MODAL -->
+<div class="overlay" id="productSalesModal" style="z-index:850;">
+<div class="modal" style="max-height:85vh;overflow-y:auto;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h3 style="margin:0;" id="productSalesTitle">🧾 Sales History</h3>
+    <button class="bk-close" onclick="closeModal('productSalesModal')"><span class="bk-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></button>
+  </div>
+  <div id="productSalesBody"></div>
+</div>
+</div>
+
 <!-- CLIENT MODAL -->
 <div class="overlay" id="clientModal">
 <div class="modal ct-modal">
   <div class="ct-header">
-    <div class="ct-title">Add Client</div>
+    <div class="ct-title" id="ct_modalTitle">Add Client</div>
     <button class="bk-close" onclick="closeModal('clientModal')"><span class="bk-icon"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></button>
   </div>
   <div class="ct-card">
@@ -868,7 +1044,7 @@ body{padding-bottom:78px;}
       <input id="c_notes" placeholder="Skin type, preferences...">
     </div>
   </div>
-  <button class="btn btn-rose ct-save-btn" onclick="saveClient()">✅ Save Client</button>
+  <button class="btn btn-rose ct-save-btn" id="ct_saveBtn" onclick="saveClient()">✅ Save Client</button>
 </div>
 </div>
 
@@ -952,6 +1128,66 @@ body{padding-bottom:78px;}
   <div style="display:flex;gap:10px;margin-top:6px;">
     <button class="btn btn-gray" style="flex:1;" onclick="closeModal('purchaseModal')">Cancel</button>
     <button class="btn btn-red" style="flex:2;" onclick="savePurchase()">✅ Add Purchase</button>
+  </div>
+</div>
+</div>
+
+<!-- EDIT BOOKING MODAL -->
+<div class="overlay" id="editBookingModal" style="z-index:850;">
+<div class="modal">
+  <h3>✏️ Edit Entry</h3>
+  <div class="form-group">
+    <label class="form-label">Client Name</label>
+    <input class="form-input" id="eb_clientName">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Client Phone</label>
+    <input class="form-input" id="eb_clientPhone" type="tel">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Service *</label>
+    <input class="form-input" id="eb_service">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Staff</label>
+    <select class="form-input" id="eb_staff"></select>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input class="form-input" id="eb_date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Amount (₹) *</label>
+      <input class="form-input" id="eb_amount" type="number">
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div class="form-group">
+      <label class="form-label">Payment Mode</label>
+      <select class="form-input" id="eb_payment">
+        <option value="Cash">💵 Cash</option>
+        <option value="UPI">📱 UPI</option>
+        <option value="Card">💳 Card</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="form-input" id="eb_status">
+        <option value="completed">Completed</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="in-progress">In Progress</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Note</label>
+    <input class="form-input" id="eb_notes">
+  </div>
+  <div style="display:flex;gap:10px;margin-top:6px;">
+    <button class="btn btn-gray" style="flex:1;" onclick="closeModal('editBookingModal')">Cancel</button>
+    <button class="btn btn-blue" style="flex:2;" onclick="saveEditBooking()">✅ Save Changes</button>
   </div>
 </div>
 </div>
@@ -1105,6 +1341,45 @@ body{padding-bottom:78px;}
 </div>
 </div>
 
+<!-- WHATSAPP MESSAGE COMPOSER -->
+<div class="overlay" id="waComposerModal" style="z-index:950;">
+<div class="modal">
+  <h3>✏️ Edit Message Before Sending</h3>
+  <div style="font-size:12.5px;color:#8b6f5e;margin-bottom:8px;" id="waComposerLabel"></div>
+  <div class="form-group">
+    <textarea class="form-input" id="waComposerText" rows="10" style="font-family:'DM Sans',sans-serif;"></textarea>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:6px;">
+    <button class="btn btn-gray" style="flex:1;" onclick="closeModal('waComposerModal')">Cancel</button>
+    <button class="btn btn-green" style="flex:2;" onclick="sendComposedMessage()">📲 Send on WhatsApp</button>
+  </div>
+</div>
+</div>
+
+<!-- MARK BALANCE PAID MODAL -->
+<div class="overlay" id="markBalancePaidModal" style="z-index:900;">
+<div class="modal">
+  <h3>✅ Clear Balance Payment</h3>
+  <div id="mbp_info" style="background:var(--cream);border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px;"></div>
+  <div class="form-group">
+    <label class="form-label">Payment Mode</label>
+    <select class="form-input" id="mbp_paymentMode">
+      <option value="Cash">💵 Cash</option>
+      <option value="UPI">📱 UPI</option>
+      <option value="Card">💳 Card</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Paid Date</label>
+    <input class="form-input" id="mbp_paidDate" type="date">
+  </div>
+  <div style="display:flex;gap:10px;margin-top:6px;">
+    <button class="btn btn-gray" style="flex:1;" onclick="closeModal('markBalancePaidModal')">Cancel</button>
+    <button class="btn btn-green" style="flex:2;" onclick="confirmMarkBalancePaid()">✅ Confirm Paid</button>
+  </div>
+</div>
+</div>
+
 <!-- REPORTS MODAL (full screen) -->
 <div class="overlay" id="reportsModal">
 <div class="modal" style="max-width:600px;max-height:92vh;overflow-y:auto;padding:20px;">
@@ -1205,7 +1480,123 @@ body{padding-bottom:78px;}
 </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
+// ==================== FIREBASE CLOUD SYNC ====================
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBeqfL0egPyTmbxN4p_xq7Qhj8LNb-Qx3k",
+  authDomain: "milka-makeover.firebaseapp.com",
+  projectId: "milka-makeover",
+  storageBucket: "milka-makeover.firebasestorage.app",
+  messagingSenderId: "594495486205",
+  appId: "1:594495486205:web:73fd2f6ffada61e3ed6694",
+  measurementId: "G-4GFFGP9HNK"
+};
+firebase.initializeApp(firebaseConfig);
+const cloudDb = firebase.firestore();
+const CLOUD_DOC = cloudDb.collection("salonData").doc("milkaData");
+let cloudSyncTimer = null;
+let cloudSyncInProgress = false;
+
+function cloudIndicator(state) {
+  // state: "saving" | "saved" | "error" | "loading"
+  let el = document.getElementById("cloudSyncBadge");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "cloudSyncBadge";
+    el.style.cssText = "position:fixed;top:8px;right:10px;z-index:6000;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;transition:opacity .3s;pointer-events:none;";
+    document.body.appendChild(el);
+  }
+  const map = {
+    saving: ["☁️ Syncing…", "rgba(255,193,7,.9)", "#5c3d00"],
+    saved:  ["☁️ Synced", "rgba(76,175,80,.9)", "#fff"],
+    error:  ["☁️ Sync failed", "rgba(244,67,54,.9)", "#fff"],
+    loading:["☁️ Loading…", "rgba(33,150,243,.9)", "#fff"]
+  };
+  const [text,bg,color] = map[state] || map.saved;
+  el.textContent = text;
+  el.style.background = bg;
+  el.style.color = color;
+  el.style.opacity = "1";
+  if (state === "saved") setTimeout(()=>{ if(el) el.style.opacity="0"; }, 1500);
+}
+
+// Push current D to Firestore. Short debounce so several rapid edits collapse into
+// one write, but short enough (and flushed on tab-hide) that closing the phone
+// right after an entry never loses data.
+let cloudDirty = false;
+function syncToCloud() {
+  cloudDirty = true;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(flushCloudSync, 250);
+}
+async function flushCloudSync() {
+  clearTimeout(cloudSyncTimer);
+  if (!cloudDirty) return;
+  cloudDirty = false;
+  cloudIndicator("saving");
+  try {
+    await CLOUD_DOC.set({ payload: JSON.stringify(D), updatedAt: Date.now() });
+    cloudIndicator("saved");
+  } catch (err) {
+    console.warn("Cloud sync failed:", err);
+    cloudIndicator("error");
+    cloudDirty = true; // retry next time something changes or app resumes
+  }
+}
+// Flush immediately whenever the app is about to go to the background or close —
+// this is the moment mobile browsers most often kill pending timers.
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushCloudSync(); else loadFromCloudOnStartup(); });
+window.addEventListener("online", flushCloudSync);
+window.addEventListener("pagehide", flushCloudSync);
+window.addEventListener("beforeunload", flushCloudSync);
+
+// Pull latest data from Firestore on startup (used on a fresh device/browser)
+async function loadFromCloudOnStartup() {
+  try {
+    cloudIndicator("loading");
+    const snap = await CLOUD_DOC.get();
+    if (snap.exists) {
+      const cloud = JSON.parse(snap.data().payload);
+      const localRaw = localStorage.getItem("milkaData");
+      const localTime = localRaw ? Number(localStorage.getItem("milkaDataLocalTime")||0) : 0;
+      const cloudTime = snap.data().updatedAt || 0;
+      // Only overwrite local data if the cloud copy is newer than what we have locally
+      if (cloudTime > localTime) {
+        D = cloud;
+        saveDataLocalOnly();
+        renderAll();
+        updateHeaderDate();
+      }
+      cloudIndicator("saved");
+    } else {
+      // Nothing in the cloud yet — push whatever we have locally
+      syncToCloud();
+    }
+  } catch (err) {
+    console.warn("Cloud load failed (offline or blocked):", err);
+    cloudIndicator("error");
+  }
+}
+
+// Keep everyone's screen live: re-render whenever another device updates the cloud doc
+CLOUD_DOC.onSnapshot(snap => {
+  if (!snap.exists || cloudSyncInProgress) return;
+  const cloudTime = snap.data().updatedAt || 0;
+  const localTime = Number(localStorage.getItem("milkaDataLocalTime")||0);
+  if (cloudTime > localTime + 1000) { // avoid reacting to our own just-made write
+    try {
+      D = JSON.parse(snap.data().payload);
+      saveDataLocalOnly();
+      renderAll();
+      updateHeaderDate();
+      toast("🔄 Data updated from another device");
+    } catch(e) { console.warn(e); }
+  }
+});
+
 // ==================== DATA ====================
 const ICONS = {
   x: '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
@@ -12681,6 +13072,7 @@ function loadData() {
     },
     purchases: [],
     memberships: [],
+    productSales: [],
     attendance: [],
     advances: []
   };
@@ -12691,10 +13083,25 @@ function loadData() {
   if (!data.memberships) data.memberships = [];
   if (!data.attendance) data.attendance = [];
   if (!data.advances) data.advances = [];
+  if (!data.productSales) data.productSales = [];
+  if (data.inventory) data.inventory.forEach(i=>{ if(!i.usageType) i.usageType="sale"; if(!i.imagePos) i.imagePos={x:50,y:50}; });
+  if (data.services) data.services.forEach((s,i)=>{ if(!s.id) s.id = Date.now()+i; });
+  if (data.bookings) data.bookings.forEach(b=>{
+    if (b.amountPaid===undefined) b.amountPaid = b.amount;
+    if (b.balanceDue===undefined) b.balanceDue = 0;
+    if (!b.balanceStatus) b.balanceStatus = "none";
+  });
   return data;
 }
 
-function saveData() { localStorage.setItem("milkaData", JSON.stringify(D)); }
+function saveDataLocalOnly() {
+  localStorage.setItem("milkaData", JSON.stringify(D));
+  localStorage.setItem("milkaDataLocalTime", String(Date.now()));
+}
+function saveData() {
+  saveDataLocalOnly();
+  syncToCloud();
+}
 let D = loadData();
 let SALON_PHONE = D.settings.phone;
 let GOOGLE_LINK = D.settings.googleLink;
@@ -12965,6 +13372,7 @@ function quickAddChoice(type) {
   document.getElementById("quickAddMenu").style.display = "none";
   if (type==="appointment") openModal("bookingModal");
   if (type==="purchase") openModal("purchaseModal");
+  if (type==="sell") openSellModal();
 }
 document.addEventListener("click", function(e){
   const menu = document.getElementById("quickAddMenu");
@@ -13135,6 +13543,11 @@ function openModal(id) {
     document.querySelector("#staffModal h3").textContent = "💅 Add Staff";
     document.querySelector('#staffModal button[onclick="saveStaff()"]').textContent = "✅ Add Staff";
   }
+  if(id==="clientModal") {
+    clientEditId = null;
+    document.getElementById("ct_modalTitle").textContent = "Add Client";
+    document.getElementById("ct_saveBtn").textContent = "✅ Save Client";
+  }
   if(id==="purchaseModal") {
     document.getElementById("pu_paid").checked = false;
     document.getElementById("pu_paidFields").style.display = "none";
@@ -13175,37 +13588,51 @@ function msgHoliday(festival, offer) {
   return `🌟 *${festival} Mubarak!* 🎊\n\nWarm wishes to you and your family from Milka Hair & Beauty Makeover! 💕\n\n${offer?`🎁 *Special Offer:*\n${offer}\n\n`:""}📞 Booking: ${SALON_PHONE}\n⭐ Review: ${GOOGLE_LINK}\n\n— Team Milka ✨`;
 }
 
+// ---- WhatsApp message composer: always let the user review/edit before sending ----
+let waComposerPhone = "";
+function openWaComposer(phone, message, label) {
+  waComposerPhone = phone;
+  document.getElementById("waComposerLabel").textContent = label || "";
+  document.getElementById("waComposerText").value = message;
+  document.getElementById("waComposerModal").classList.add("open");
+}
+function sendComposedMessage() {
+  const msg = document.getElementById("waComposerText").value;
+  closeModal("waComposerModal");
+  openWA(waComposerPhone, msg);
+}
+
 // ---- Safe WhatsApp senders (look up data by numeric id, never embed
 // client-typed text like names/notes directly into onclick attributes) ----
 function waFeedbackBooking(id) {
   const b = D.bookings.find(x=>x.id===id);
   if (!b) return;
-  openWA(b.clientPhone, msgFeedback(b.clientName, b.service));
+  openWaComposer(b.clientPhone, msgFeedback(b.clientName, b.service), `To: ${b.clientName}`);
 }
 function waReminderBooking(id) {
   const b = D.bookings.find(x=>x.id===id);
   if (!b) return;
-  openWA(b.clientPhone, msgReminder(b.clientName, b.service, b.date, b.time));
+  openWaComposer(b.clientPhone, msgReminder(b.clientName, b.service, b.date, b.time), `To: ${b.clientName}`);
 }
 function waBirthdayClient(id) {
   const c = D.clients.find(x=>x.id===id);
   if (!c) return;
-  openWA(c.phone, msgBirthday(c.name));
+  openWaComposer(c.phone, msgBirthday(c.name), `To: ${c.name}`);
 }
 function waFeedbackClient(id) {
   const c = D.clients.find(x=>x.id===id);
   if (!c) return;
-  openWA(c.phone, msgFeedback(c.name, "hamare services"));
+  openWaComposer(c.phone, msgFeedback(c.name, "hamare services"), `To: ${c.name}`);
 }
 function waPlainClient(id) {
   const c = D.clients.find(x=>x.id===id);
   if (!c) return;
-  openWA(c.phone, "");
+  openWaComposer(c.phone, "", `To: ${c.name}`);
 }
 function waStaff(id) {
   const s = D.staff.find(x=>x.id===id);
   if (!s) return;
-  openWA(s.phone, `Hi ${s.name}! Your schedule for today is ready. — Milka Salon 💄`);
+  openWaComposer(s.phone, `Hi ${s.name}! Your schedule for today is ready. — Milka Salon 💄`, `To: ${s.name}`);
 }
 
 // ==================== DASHBOARD ====================
@@ -13267,7 +13694,7 @@ function renderAppointments() {
           <div style="font-size:13px;color:#8b6f5e;">📞 ${b.clientPhone}</div>
           <div style="font-size:13px;color:var(--brown);margin-top:3px;">💆 ${b.service} • 👩 ${b.staff}</div>
           ${b.notes?`<div style="font-size:12px;color:#8b6f5e;margin-top:2px;">📝 ${b.notes}</div>`:""}
-          <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;">${badge(b.type)} ${badge(b.status)} <span class="badge" style="background:#f5f5f5;color:#555;">${b.payment||"Cash"}</span></div>
+          <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;">${badge(b.type)} ${badge(b.status)} <span class="badge" style="background:#f5f5f5;color:#555;">${b.payment||"Cash"}</span>${b.balanceStatus==="pending"?`<span class="badge badge-red">BALANCE ${fmtMoney(b.balanceDue)}</span>`:""}</div>
         </div>
         <div style="text-align:right;">
           <div style="font-size:20px;font-weight:800;">${fmtMoney(b.amount)}</div>
@@ -13276,6 +13703,7 @@ function renderAppointments() {
             ${b.status==="completed"?`<button class="btn btn-sm btn-gold" onclick="waFeedbackBooking(${b.id})">⭐ Feedback</button>`:""}
             ${b.status==="completed"?`<button class="btn btn-sm" style="background:#e3f2fd;color:#1565c0;" onclick="generateReceipt(${b.id})">🧾 Bill</button>`:""}
             <button class="btn btn-sm btn-green" onclick="waReminderBooking(${b.id})">📲 WA</button>
+            <button class="btn btn-sm btn-blue" onclick="editBooking(${b.id})">✏️ Edit</button>
             <button class="btn btn-sm" style="background:#ffebee;color:#c62828;" onclick="deleteBooking(${b.id})">🗑️</button>
           </div>
         </div>
@@ -13307,6 +13735,59 @@ function deleteBooking(id) {
   saveData(); renderAll(); toast("Deleted!","error");
 }
 
+let editBookingId = null;
+function editBooking(id) {
+  const b = D.bookings.find(x=>x.id===id);
+  if (!b) return;
+  editBookingId = id;
+  document.getElementById("eb_clientName").value = b.clientName||"";
+  document.getElementById("eb_clientPhone").value = b.clientPhone||"";
+  document.getElementById("eb_service").value = b.service||"";
+  document.getElementById("eb_staff").innerHTML = D.staff.map(s=>`<option value="${s.name}" ${s.name===b.staff?"selected":""}>${s.name}</option>`).join("");
+  document.getElementById("eb_date").value = b.date||today();
+  document.getElementById("eb_amount").value = b.amount;
+  document.getElementById("eb_payment").value = b.payment||"Cash";
+  document.getElementById("eb_status").value = b.status||"completed";
+  document.getElementById("eb_notes").value = b.notes||"";
+  document.getElementById("editBookingModal").classList.add("open");
+}
+
+function saveEditBooking() {
+  const b = D.bookings.find(x=>x.id===editBookingId);
+  if (!b) return;
+  const newService = document.getElementById("eb_service").value.trim();
+  const newAmount = Number(document.getElementById("eb_amount").value);
+  if (!newService || !newAmount) { toast("Service and Amount are required!","error"); return; }
+
+  const oldAmount = Number(b.amount);
+  const oldStatus = b.status;
+  const oldPhone = b.clientPhone;
+
+  b.clientName = document.getElementById("eb_clientName").value.trim() || "Walk-in Customer";
+  b.clientPhone = document.getElementById("eb_clientPhone").value.trim();
+  b.service = newService;
+  b.staff = document.getElementById("eb_staff").value;
+  b.date = document.getElementById("eb_date").value;
+  b.amount = newAmount;
+  b.payment = document.getElementById("eb_payment").value;
+  b.status = document.getElementById("eb_status").value;
+  b.notes = document.getElementById("eb_notes").value;
+
+  // Keep the linked client's totalSpent accurate: undo the old completed amount
+  // (from whichever phone it was under) and re-apply the new one if still completed.
+  if (oldStatus==="completed" && oldPhone) {
+    const oldClient = D.clients.find(c=>c.phone===oldPhone);
+    if (oldClient) oldClient.totalSpent = Math.max(0, Number(oldClient.totalSpent) - oldAmount);
+  }
+  if (b.status==="completed" && b.clientPhone) {
+    const newClient = D.clients.find(c=>c.phone===b.clientPhone);
+    if (newClient) newClient.totalSpent = Number(newClient.totalSpent) + newAmount;
+  }
+
+  saveData(); closeModal("editBookingModal"); renderAll();
+  toast("✅ Entry updated!");
+}
+
 // ==================== INVENTORY ====================
 function renderInventory() {
   const low = D.inventory.filter(i=>i.stock<=i.minStock);
@@ -13316,26 +13797,37 @@ function renderInventory() {
       ${low.map(p=>`• <strong>${p.name}</strong>: Only ${p.stock} ${p.unit} left (Min: ${p.minStock})`).join("<br>")}
     </div>` : "";
 
-  document.getElementById("inventoryGrid").innerHTML = D.inventory.map(item=>`
+  const usageBadge = {
+    sale: '<span class="badge badge-green">FOR SALE</span>',
+    salon: '<span class="badge badge-blue">SALON USE</span>',
+    both: '<span class="badge badge-purple">SALON + SALE</span>'
+  };
+
+  document.getElementById("inventoryGrid").innerHTML = D.inventory.map(item=>{
+    const pos = item.imagePos || {x:50,y:50};
+    return `
     <div class="card" style="padding:12px;">
       <div style="display:flex;gap:12px;align-items:center;">
         <div style="width:56px;height:56px;border-radius:10px;background:var(--light);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-          ${item.image ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:22px;">🧴</span>`}
+          ${item.image ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover;object-position:${pos.x}% ${pos.y}%;">` : `<span style="font-size:22px;">🧴</span>`}
         </div>
         <div style="flex:1;min-width:0;">
           <div style="font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</div>
-          <div style="font-size:12px;color:${item.stock<=item.minStock?"#e53935":"#8b6f5e"};">${item.stock} in stock</div>
+          <div style="font-size:12px;color:${item.stock<=item.minStock?"#e53935":"#8b6f5e"};">${item.stock} ${item.unit} in stock</div>
           <div style="font-weight:800;font-size:14px;margin-top:1px;">${fmtMoney(item.price)}</div>
+          <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;">${usageBadge[item.usageType||"sale"]}<span class="badge badge-rose">${item.category}</span></div>
         </div>
-        <span class="badge badge-rose" style="flex-shrink:0;">${item.category}</span>
       </div>
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button class="btn btn-sm" style="flex:1;background:#e8f5e9;color:#2e7d32;" onclick="updateStock(${item.id},1)">+ Add Stock</button>
-        <button class="btn btn-sm" style="flex:1;background:#ffebee;color:#c62828;" onclick="updateStock(${item.id},-1)">- Sell</button>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-sm" style="flex:1;background:#e8f5e9;color:#2e7d32;" onclick="updateStock(${item.id},1)">+ Restock</button>
+        ${item.usageType!=="salon" ? `<button class="btn btn-sm btn-green" style="flex:1;" onclick="openSellModal(${item.id})">🛒 Sell</button>` : ""}
+        <button class="btn btn-sm btn-blue" onclick="viewProductSales(${item.id})">📊</button>
         <button class="btn btn-sm btn-gray" onclick="deleteInventory(${item.id})">🗑️</button>
       </div>
     </div>
-  `).join("");
+  `;}).join("");
+
+  renderSalesReport();
 }
 
 function updateStock(id, change) {
@@ -13371,6 +13863,7 @@ function renderClients() {
           ${isBday(c)?`<button class="btn btn-sm" style="background:#fce4ec;color:#880e4f;" onclick="waBirthdayClient(${c.id})">🎂</button>`:""}
           <button class="btn btn-sm btn-gold" onclick="waFeedbackClient(${c.id})">⭐ Feedback</button>
           <button class="btn btn-sm btn-green" onclick="waPlainClient(${c.id})">📲 WA</button>
+          <button class="btn btn-sm btn-blue" onclick="editClient(${c.id})">✏️ Edit</button>
           <button class="btn btn-sm btn-gray" onclick="deleteClient(${c.id})">🗑️</button>
         </div>
       </div>
@@ -13405,12 +13898,13 @@ function openClientDetail(id) {
       <button class="btn btn-sm" style="background:#fce4ec;color:#880e4f;" onclick="waBirthdayClient(${c.id})">🎂 Birthday</button>
       <button class="btn btn-sm btn-gold" onclick="waFeedbackClient(${c.id})">⭐ Feedback</button>
       <button class="btn btn-sm btn-green" onclick="waPlainClient(${c.id})">📲 WhatsApp</button>
+      <button class="btn btn-sm btn-blue" onclick="closeModal('clientDetailModal');editClient(${c.id})">✏️ Edit Client</button>
     </div>
     <h4 style="font-size:14px;margin-bottom:8px;border-top:1px solid var(--light);padding-top:12px;">📋 Visit History</h4>
     <div class="table-wrap">
       <table style="width:100%;font-size:12.5px;border-collapse:collapse;">
-        <tr style="border-bottom:2px solid var(--light);text-align:left;"><th style="padding:6px 4px;">Date</th><th style="padding:6px 4px;">Service</th><th style="padding:6px 4px;text-align:right;">Amount</th></tr>
-        ${history.map(b=>`<tr style="border-bottom:1px solid var(--light);"><td style="padding:6px 4px;">${fmt(b.date)}</td><td style="padding:6px 4px;">${b.service}</td><td style="padding:6px 4px;text-align:right;font-weight:600;">${fmtMoney(b.amount)}</td></tr>`).join("") || `<tr><td colspan="3" style="padding:12px 4px;text-align:center;color:#8b6f5e;">No visit history yet</td></tr>`}
+        <tr style="border-bottom:2px solid var(--light);text-align:left;"><th style="padding:6px 4px;">Date</th><th style="padding:6px 4px;">Service</th><th style="padding:6px 4px;text-align:right;">Amount</th><th style="padding:6px 4px;"></th></tr>
+        ${history.map(b=>`<tr style="border-bottom:1px solid var(--light);"><td style="padding:6px 4px;">${fmt(b.date)}</td><td style="padding:6px 4px;">${b.service}</td><td style="padding:6px 4px;text-align:right;font-weight:600;">${fmtMoney(b.amount)}</td><td style="padding:6px 4px;text-align:right;"><button class="btn btn-sm btn-blue" style="padding:3px 8px;font-size:11px;" onclick="closeModal('clientDetailModal');editBooking(${b.id})">✏️</button></td></tr>`).join("") || `<tr><td colspan="4" style="padding:12px 4px;text-align:center;color:#8b6f5e;">No visit history yet</td></tr>`}
       </table>
     </div>
   `;
@@ -13513,7 +14007,7 @@ function showWaPanel(type) {
 function sendHoliday(phone, name) {
   const h = document.getElementById("hol_name")?.value || "Festival";
   const o = document.getElementById("hol_offer")?.value || "";
-  openWA(phone, msgHoliday(h, o));
+  openWaComposer(phone, msgHoliday(h, o), `To: ${name}`);
 }
 function sendHolidayById(id) {
   const c = D.clients.find(x=>x.id===id);
@@ -13557,7 +14051,7 @@ function updateBulkBtns() {
 
 function sendBulk(phone, name) {
   const msg = document.getElementById("bulk_msg")?.value || `Hi ${name}! has a special offer for you at Milka Hair & Beauty Makeover! Book today. 📞 ${SALON_PHONE}`;
-  openWA(phone, msg.replace("[name]",name).replace("{name}",name));
+  openWaComposer(phone, msg.replace("[name]",name).replace("{name}",name), `To: ${name}`);
 }
 function sendBulkById(id) {
   const c = D.clients.find(x=>x.id===id);
@@ -13568,25 +14062,39 @@ function sendBulkById(id) {
 // ==================== ERP ====================
 // ==================== DATE RANGE FILTER (shared) ====================
 let dateFilters = {
-  erp: { preset: "all", from: "", to: "" },
-  reports: { preset: "all", from: "", to: "" },
-  purchase: { preset: "all", from: "", to: "" }
+  erp: { preset: "thismonth", from: "", to: "" },
+  reports: { preset: "thismonth", from: "", to: "" },
+  purchase: { preset: "thismonth", from: "", to: "" }
 };
 
 function computeDateRange(preset, fromVal, toVal) {
   const t = new Date(today()+"T00:00:00");
   if (preset === "today") return [today(), today()];
+  if (preset === "yesterday") {
+    const y = new Date(t); y.setDate(t.getDate()-1);
+    const ys = y.toISOString().slice(0,10);
+    return [ys, ys];
+  }
   if (preset === "week") {
     const day = t.getDay();
     const diffToMon = (day===0?6:day-1);
     const monday = new Date(t); monday.setDate(t.getDate()-diffToMon);
     return [monday.toISOString().slice(0,10), today()];
   }
+  if (preset === "thismonth") {
+    const y=t.getFullYear(), m=t.getMonth();
+    const first = new Date(y, m, 1);
+    return [first.toISOString().slice(0,10), today()];
+  }
   if (preset === "lastmonth") {
     const y=t.getFullYear(), m=t.getMonth();
     const first = new Date(y, m-1, 1);
     const last = new Date(y, m, 0);
     return [first.toISOString().slice(0,10), last.toISOString().slice(0,10)];
+  }
+  if (preset === "thisyear") {
+    const y=t.getFullYear();
+    return [`${y}-01-01`, today()];
   }
   if (preset === "lastyear") {
     const y=t.getFullYear()-1;
@@ -13598,8 +14106,11 @@ function computeDateRange(preset, fromVal, toVal) {
 function dateFilterLabel(preset, from, to) {
   if (preset==="all") return "Showing all-time data";
   if (preset==="today") return "Showing today's data";
+  if (preset==="yesterday") return "Showing yesterday's data";
   if (preset==="week") return "Showing this week's data";
+  if (preset==="thismonth") return "Showing this month's data";
   if (preset==="lastmonth") return "Showing last month's data";
+  if (preset==="thisyear") return "Showing this year's data";
   if (preset==="lastyear") return "Showing last year's data";
   if (preset==="custom") return `Showing data from ${fmt(from)} to ${fmt(to)}`;
   return "";
@@ -13614,8 +14125,11 @@ function dateFilterPanelHTML(prefix) {
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <button class="btn btn-sm" onclick="setDateFilterPreset('${prefix}','all')">All Time</button>
       <button class="btn btn-sm" onclick="setDateFilterPreset('${prefix}','today')">Today</button>
+      <button class="btn btn-sm" onclick="setDateFilterPreset('${prefix}','yesterday')">Yesterday</button>
       <button class="btn btn-sm" onclick="setDateFilterPreset('${prefix}','week')">This Week</button>
+      <button class="btn btn-sm" onclick="setDateFilterPreset('${prefix}','thismonth')">This Month</button>
       <button class="btn btn-sm" onclick="setDateFilterPreset('${prefix}','lastmonth')">Last Month</button>
+      <button class="btn btn-sm" onclick="setDateFilterPreset('${prefix}','thisyear')">This Year</button>
       <button class="btn btn-sm" onclick="setDateFilterPreset('${prefix}','lastyear')">Last Year</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -13648,6 +14162,8 @@ function refreshFilterConsumers(prefix) {
   if (prefix==="purchase") { renderPurchaseLedger(); document.getElementById("purchaseFilterPanel").style.display="none"; }
   if (prefix==="reports") { renderReportsModal(); }
   if (prefix==="detail") { renderReportDetail(); document.getElementById("reportDetailFilterPanel").style.display="none"; }
+  if (prefix==="team") { renderTeam(); document.getElementById("teamFilterPanel").style.display="none"; }
+  if (prefix==="inventory") { renderSalesReport(); document.getElementById("inventoryFilterPanel").style.display="none"; }
 }
 function toggleErpFilterPanel() {
   const el = document.getElementById("erpFilterPanel");
@@ -13805,6 +14321,67 @@ function confirmMarkPaid() {
   renderPurchaseLedger();
   if (document.getElementById("reportDetailModal").classList.contains("open")) renderReportDetail();
   toast("✅ Marked as paid!");
+}
+
+// ==================== BALANCE / PENDING PAYMENTS LEDGER ====================
+function renderBalanceLedger() {
+  const listEl = document.getElementById("balanceLedgerList");
+  if (!listEl) return;
+  const q = (document.getElementById("balanceLedgerSearch")?.value||"").toLowerCase();
+  let list = D.bookings.filter(b=>b.balanceStatus==="pending" && Number(b.balanceDue)>0 && (!q || (b.clientName||"").toLowerCase().includes(q)));
+  list.sort((a,b)=>b.date.localeCompare(a.date));
+
+  const total = list.reduce((s,b)=>s+Number(b.balanceDue),0);
+  document.getElementById("balanceLedgerTotal").innerHTML = `Total Pending: <span style="color:var(--red);">${fmtMoney(total)}</span> across ${list.length} entries`;
+
+  if (!list.length) { listEl.innerHTML = `<p style="text-align:center;color:#8b6f5e;padding:16px;">No pending balances 🎉</p>`; return; }
+
+  // Group by client for a ledger-style view
+  const byClient = {};
+  list.forEach(b=>{ (byClient[b.clientName]=byClient[b.clientName]||[]).push(b); });
+
+  listEl.innerHTML = Object.keys(byClient).sort().map(client=>{
+    const entries = byClient[client];
+    const subtotal = entries.reduce((s,b)=>s+Number(b.balanceDue),0);
+    return `
+      <div style="border:1px solid var(--light);border-radius:12px;padding:12px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:14px;margin-bottom:8px;">
+          <span>${client}</span><span style="color:var(--red);">${fmtMoney(subtotal)}</span>
+        </div>
+        ${entries.map(b=>`
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-top:1px solid var(--light);">
+            <div>
+              <div>${b.service}</div>
+              <div style="color:#8b6f5e;font-size:11px;">${fmt(b.date)} • Paid ${fmtMoney(b.amountPaid)} of ${fmtMoney(b.amount)}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+              <strong style="color:var(--red);">${fmtMoney(b.balanceDue)}</strong>
+              <button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;padding:4px 8px;font-size:11px;" onclick="openMarkBalancePaid(${b.id})">✅ Mark Paid</button>
+            </div>
+          </div>`).join("")}
+      </div>`;
+  }).join("");
+}
+
+let pendingBalanceBookingId = null;
+function openMarkBalancePaid(id) {
+  const b = D.bookings.find(x=>x.id===id);
+  if (!b) return;
+  pendingBalanceBookingId = id;
+  document.getElementById("mbp_info").innerHTML = `<strong>${b.clientName}</strong> — ${b.service}<br>Balance Due: <strong style="color:var(--red);">${fmtMoney(b.balanceDue)}</strong>`;
+  document.getElementById("mbp_paidDate").value = today();
+  document.getElementById("markBalancePaidModal").classList.add("open");
+}
+function confirmMarkBalancePaid() {
+  const b = D.bookings.find(x=>x.id===pendingBalanceBookingId);
+  if (!b) return;
+  b.amountPaid = Number(b.amountPaid) + Number(b.balanceDue);
+  b.balanceDue = 0;
+  b.balanceStatus = "paid";
+  b.balancePaidDate = document.getElementById("mbp_paidDate").value || today();
+  b.balancePaymentMode = document.getElementById("mbp_paymentMode").value;
+  saveData(); closeModal("markBalancePaidModal"); renderBalanceLedger();
+  toast("✅ Balance cleared!");
 }
 
 function renderPurchaseLedger() {
@@ -14106,11 +14683,116 @@ function renderReportDetail() {
 }
 
 // ==================== TEAM ====================
+dateFilters.team = { preset: "thismonth", from: "", to: "" };
+function toggleTeamFilterPanel() {
+  const el = document.getElementById("teamFilterPanel");
+  if (!el.dataset.built) { el.innerHTML = dateFilterPanelHTML("team"); el.dataset.built = "1"; }
+  el.style.display = el.style.display==="none" ? "block" : "none";
+}
+
+// ==================== CATALOG (RATE LIST) ====================
+let catalogEditId = null;
+
+function renderCatalog() {
+  const q = (document.getElementById("catalogSearch")?.value||"").toLowerCase();
+  const byCat = {};
+  D.services.forEach(s=>{
+    if (q && !s.name.toLowerCase().includes(q) && !s.category.toLowerCase().includes(q)) return;
+    (byCat[s.category]=byCat[s.category]||[]).push(s);
+  });
+  const cats = Object.keys(byCat).sort();
+  document.getElementById("catalogList").innerHTML = cats.length ? cats.map(cat=>`
+    <div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h3 style="font-size:15px;margin:0;">${cat}</h3>
+        <span class="badge badge-rose">${byCat[cat].length}</span>
+      </div>
+      ${byCat[cat].map(s=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--light);">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:13.5px;">${s.name}</div>
+            <div style="font-size:11.5px;color:#8b6f5e;">${s.duration||30} min</div>
+          </div>
+          <div style="font-weight:800;font-size:14px;margin-right:10px;">${fmtMoney(s.price)}</div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button class="btn btn-sm btn-blue" style="padding:4px 9px;" onclick="openCatalogModal(${s.id})">✏️</button>
+            <button class="btn btn-sm btn-gray" style="padding:4px 9px;" onclick="deleteCatalogService(${s.id})">🗑️</button>
+          </div>
+        </div>`).join("")}
+    </div>
+  `).join("") : `<p style="text-align:center;color:#8b6f5e;padding:30px;">No services found</p>`;
+}
+
+function populateCatalogCategoryOptions(selected) {
+  const cats = [...new Set(D.services.map(s=>s.category))].sort();
+  const sel = document.getElementById("cat_category");
+  sel.innerHTML = cats.map(c=>`<option value="${c}" ${c===selected?"selected":""}>${c}</option>`).join("")
+    + `<option value="__new__" ${selected==="__new__"?"selected":""}>➕ Add New Category</option>`;
+}
+function onCatalogCategoryChange() {
+  const isNew = document.getElementById("cat_category").value === "__new__";
+  document.getElementById("cat_newCategoryRow").style.display = isNew ? "flex" : "none";
+}
+
+function openCatalogModal(id) {
+  catalogEditId = id || null;
+  const s = id ? D.services.find(x=>x.id===id) : null;
+  document.getElementById("cat_modalTitle").textContent = s ? "Edit Service" : "Add Service";
+  document.getElementById("cat_saveBtn").textContent = s ? "✅ Save Changes" : "✅ Save Service";
+  document.getElementById("cat_name").value = s ? s.name : "";
+  document.getElementById("cat_price").value = s ? s.price : "";
+  document.getElementById("cat_duration").value = s ? s.duration : 30;
+  populateCatalogCategoryOptions(s ? s.category : "");
+  document.getElementById("cat_newCategory").value = "";
+  document.getElementById("cat_newCategoryRow").style.display = "none";
+  document.getElementById("catalogModal").classList.add("open");
+}
+
+function saveCatalogService() {
+  const name = document.getElementById("cat_name").value.trim();
+  const price = Number(document.getElementById("cat_price").value);
+  const duration = Number(document.getElementById("cat_duration").value) || 30;
+  let category = document.getElementById("cat_category").value;
+  if (category === "__new__") {
+    category = document.getElementById("cat_newCategory").value.trim();
+  }
+  if (!name || !price || !category) { toast("Service name, category and price are required!","error"); return; }
+
+  if (catalogEditId) {
+    const s = D.services.find(x=>x.id===catalogEditId);
+    Object.assign(s, {name, price, duration, category});
+    toast("✅ Service updated!");
+  } else {
+    D.services.push({ id: Date.now(), name, price, duration, category });
+    toast("✅ Service added!");
+  }
+  saveData(); closeModal("catalogModal"); renderCatalog();
+  catalogEditId = null;
+}
+
+function deleteCatalogService(id) {
+  if (!confirm("Delete this service from the rate list?")) return;
+  D.services = D.services.filter(s=>s.id!==id);
+  saveData(); renderCatalog(); toast("Deleted!","error");
+}
+
 function renderTeam() {
-  const maxRev = Math.max(...D.staff.map(s=>s.monthRevenue));
+  const f = dateFilters.team;
+  const [start, end] = computeDateRange(f.preset, f.from, f.to);
+  document.getElementById("teamFilterLabel").textContent = dateFilterLabel(f.preset, f.from, f.to);
+  const filteredBookings = D.bookings.filter(b=>inRange(b.date,start,end));
+
+  const revenueByStaff = {};
+  D.staff.forEach(s=>{
+    revenueByStaff[s.name] = filteredBookings
+      .filter(b=>b.status==="completed" && b.staff && b.staff.split(", ").includes(s.name))
+      .reduce((sum,b)=>sum+Number(b.amount),0);
+  });
+  const maxRev = Math.max(1, ...Object.values(revenueByStaff));
   document.getElementById("teamCards").innerHTML = D.staff.map(s=>{
-    const todayAppts = D.bookings.filter(b=>b.date===today()&&b.staff===s.name).length;
-    const totalAppts = D.bookings.filter(b=>b.staff===s.name).length;
+    const todayAppts = D.bookings.filter(b=>b.date===today()&&b.staff&&b.staff.split(", ").includes(s.name)).length;
+    const totalAppts = filteredBookings.filter(b=>b.staff&&b.staff.split(", ").includes(s.name)).length;
+    const rev = revenueByStaff[s.name];
     return `<div class="card">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
         <div class="avatar" style="width:52px;height:52px;font-size:20px;">${s.name[0]}</div>
@@ -14127,10 +14809,10 @@ function renderTeam() {
         </div>
         <div style="flex:1;background:var(--cream);border-radius:10px;padding:10px;text-align:center;">
           <div style="font-size:20px;font-weight:800;">${totalAppts}</div>
-          <div style="font-size:11px;color:#8b6f5e;">Total</div>
+          <div style="font-size:11px;color:#8b6f5e;">In Range</div>
         </div>
         <div style="flex:1;background:var(--cream);border-radius:10px;padding:10px;text-align:center;">
-          <div style="font-size:16px;font-weight:800;color:var(--brown);">${(s.monthRevenue/1000).toFixed(0)}k</div>
+          <div style="font-size:16px;font-weight:800;color:var(--brown);">${(rev/1000).toFixed(1)}k</div>
           <div style="font-size:11px;color:#8b6f5e;">Revenue</div>
         </div>
       </div>
@@ -14138,7 +14820,7 @@ function renderTeam() {
         ${s.services.map(sv=>`<span style="background:var(--light);color:var(--brown);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;">${sv}</span>`).join("")}
       </div>
       <div style="font-size:12px;color:#8b6f5e;margin-bottom:4px;">Monthly Target: ₹30,000</div>
-      <div class="progress"><div class="progress-bar" style="width:${Math.min((s.monthRevenue/30000)*100,100)}%"></div></div>
+      <div class="progress"><div class="progress-bar" style="width:${Math.min((rev/30000)*100,100)}%"></div></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="btn btn-sm btn-green" style="flex:1;" onclick="waStaff(${s.id})">📲 WA</button>
         <button class="btn btn-sm btn-blue" onclick="openEditStaff(${s.id})">✏️ Edit</button>
@@ -14151,13 +14833,13 @@ function renderTeam() {
     <div style="margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
         <span style="font-weight:600;">${s.name} <span style="font-size:12px;color:#8b6f5e;">(${s.role})</span></span>
-        <span style="font-weight:700;color:var(--rose);">${fmtMoney(s.monthRevenue)}</span>
+        <span style="font-weight:700;color:var(--rose);">${fmtMoney(revenueByStaff[s.name])}</span>
       </div>
       <div class="progress" style="height:12px;">
-        <div class="progress-bar" style="width:${(s.monthRevenue/maxRev)*100}%;height:100%;"></div>
+        <div class="progress-bar" style="width:${(revenueByStaff[s.name]/maxRev)*100}%;height:100%;"></div>
       </div>
-    </div>
-  `).join("");
+    </div>`
+    ).join("");
 }
 
 function deleteStaff(id){ if(!confirm("Delete?")) return; D.staff=D.staff.filter(s=>s.id!==id); saveData(); renderTeam(); toast("Deleted!","error"); }
@@ -14167,7 +14849,9 @@ let attCal = { year: 0, month: 0 };
 
 function openAttendanceModal() {
   const sel = document.getElementById("att_staffSelect");
-  sel.innerHTML = D.staff.map(s=>`<option value="${s.id}">${s.name}</option>`).join("");
+  const attendable = D.staff.filter(s=>(s.role||"").trim().toLowerCase()!=="owner");
+  if (!attendable.length) { toast("No staff available for attendance (all marked as Owner)","error"); return; }
+  sel.innerHTML = attendable.map(s=>`<option value="${s.id}">${s.name}</option>`).join("");
   const t = new Date();
   attCal = { year: t.getFullYear(), month: t.getMonth() };
   renderAttendanceCalendar();
@@ -14466,6 +15150,8 @@ function populateBookingModal() {
 
   document.getElementById("bk_paymentPanel").style.display = "none";
   document.getElementById("bk_menuPopup").style.display = "none";
+  document.getElementById("b_hasBalance").checked = false;
+  document.getElementById("b_balanceFields").style.display = "none";
 
   renderServicesCard();
 }
@@ -14518,7 +15204,7 @@ function addServiceFromPicker(cat, idx) {
   const svcByCat = serviceOptionsHTML();
   const svc = svcByCat[cat][idx];
   if (!svc) return;
-  bkServices.push({name: svc.name, price: svc.price, staff: (D.staff[0]?D.staff[0].name:"")});
+  bkServices.push({name: svc.name, price: svc.price, staffList: [D.staff[0]?D.staff[0].name:""]});
   renderServicesCard();
   closeModal("servicePickerModal");
 }
@@ -14533,8 +15219,20 @@ function setServicePrice(idx, val) {
   renderTotal();
 }
 
-function setServiceStaff(idx, val) {
-  bkServices[idx].staff = val;
+function setServiceStaffAt(idx, staffIdx, val) {
+  bkServices[idx].staffList[staffIdx] = val;
+}
+function addStaffToService(idx) {
+  const svc = bkServices[idx];
+  const unused = D.staff.find(s=>!svc.staffList.includes(s.name));
+  svc.staffList.push(unused ? unused.name : (D.staff[0]?D.staff[0].name:""));
+  renderServicesCard();
+}
+function removeStaffFromService(idx, staffIdx) {
+  const svc = bkServices[idx];
+  if (svc.staffList.length<=1) { toast("At least one staff member is required!","error"); return; }
+  svc.staffList.splice(staffIdx,1);
+  renderServicesCard();
 }
 
 function staffOptionsHTML(selected) {
@@ -14556,8 +15254,13 @@ function renderServicesCard() {
         <div class="bk-service-line">
           <div class="bk-service-info">
             <div class="bk-service-name">${s.name}</div>
-            <div class="bk-service-staff">
-              <select onchange="setServiceStaff(${i},this.value)">${staffOptionsHTML(s.staff)}</select>
+            <div class="bk-service-staff" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;">
+              ${s.staffList.map((st,si)=>`
+                <span style="display:inline-flex;align-items:center;gap:2px;">
+                  <select onchange="setServiceStaffAt(${i},${si},this.value)">${staffOptionsHTML(st)}</select>
+                  ${s.staffList.length>1?`<button type="button" onclick="removeStaffFromService(${i},${si})" style="border:none;background:none;color:var(--red);font-size:11px;cursor:pointer;">✕</button>`:""}
+                </span>`).join("")}
+              <button type="button" onclick="addStaffToService(${i})" style="border:1px dashed var(--rose);background:none;color:var(--rose);border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;cursor:pointer;">+ Staff</button>
             </div>
           </div>
           <input type="number" class="bk-service-price" value="${s.price}" onchange="setServicePrice(${i},this.value)">
@@ -14580,6 +15283,21 @@ function updateSaveButtons() {
   document.getElementById("bk_checkoutBtn").disabled = !enabled;
 }
 
+function toggleBalanceFields() {
+  const on = document.getElementById("b_hasBalance").checked;
+  document.getElementById("b_balanceFields").style.display = on ? "block" : "none";
+  if (on) {
+    const total = bkServices.reduce((a,s)=>a+s.price,0);
+    document.getElementById("b_amountPaid").value = total;
+    onBalancePaidChange();
+  }
+}
+function onBalancePaidChange() {
+  const total = bkServices.reduce((a,s)=>a+s.price,0);
+  const paid = Number(document.getElementById("b_amountPaid").value)||0;
+  document.getElementById("b_balanceDue").value = Math.max(0, total - paid);
+}
+
 function startCheckout() {
   document.getElementById("bk_paymentPanel").style.display = "block";
   document.getElementById("bk_paymentPanel").scrollIntoView({behavior:"smooth", block:"nearest"});
@@ -14597,8 +15315,12 @@ function saveBooking(status) {
   const time = document.getElementById("b_time").value;
   const serviceNames = bkServices.map(s=>s.name).join(", ");
   const amount = bkServices.reduce((a,s)=>a+s.price,0);
-  const staffNames = [...new Set(bkServices.map(s=>s.staff))].join(", ");
+  const staffNames = [...new Set(bkServices.flatMap(s=>s.staffList))].join(", ");
   const type = date===today() ? "walkin" : "booking";
+
+  const hasBalance = status==="completed" && document.getElementById("b_hasBalance").checked;
+  const amountPaid = hasBalance ? Number(document.getElementById("b_amountPaid").value)||0 : amount;
+  const balanceDue = hasBalance ? Math.max(0, amount - amountPaid) : 0;
 
   const b = {
     id: Date.now(),
@@ -14607,6 +15329,10 @@ function saveBooking(status) {
     service: serviceNames,
     staff: staffNames,
     date, time, amount,
+    amountPaid,
+    balanceDue,
+    balanceStatus: balanceDue>0 ? "pending" : "none",
+    balancePaidDate: "",
     payment: document.getElementById("b_payment").value,
     notes: document.getElementById("b_notes").value,
     status: status || (type==="walkin" ? "in-progress" : "confirmed"),
@@ -14627,22 +15353,41 @@ function saveBooking(status) {
 }
 
 let pendingInventoryImage = "";
+let pendingInventoryImagePos = {x:50, y:50};
 function handleInventoryImage(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     pendingInventoryImage = e.target.result;
-    document.getElementById("i_imgPreview").innerHTML = `<img src="${pendingInventoryImage}" style="width:100%;height:100%;object-fit:cover;">`;
+    pendingInventoryImagePos = {x:50, y:50};
+    renderInventoryImgPreview();
+    document.getElementById("i_imgAdjustRow").style.display = "flex";
   };
   reader.readAsDataURL(file);
 }
+function renderInventoryImgPreview() {
+  const p = pendingInventoryImagePos;
+  document.getElementById("i_imgPreview").innerHTML = `<img src="${pendingInventoryImage}" style="width:100%;height:100%;object-fit:cover;object-position:${p.x}% ${p.y}%;">`;
+}
+function adjustInventoryImage(dir) {
+  const step = 10;
+  if (dir==="reset") { pendingInventoryImagePos = {x:50,y:50}; }
+  else if (dir==="left") pendingInventoryImagePos.x = Math.max(0, pendingInventoryImagePos.x - step);
+  else if (dir==="right") pendingInventoryImagePos.x = Math.min(100, pendingInventoryImagePos.x + step);
+  else if (dir==="up") pendingInventoryImagePos.y = Math.max(0, pendingInventoryImagePos.y - step);
+  else if (dir==="down") pendingInventoryImagePos.y = Math.min(100, pendingInventoryImagePos.y + step);
+  renderInventoryImgPreview();
+}
 function resetInventoryImagePicker() {
   pendingInventoryImage = "";
+  pendingInventoryImagePos = {x:50, y:50};
   const el = document.getElementById("i_imgPreview");
   if (el) el.innerHTML = `<span style="font-size:24px;color:var(--rose);">📷</span>`;
   const fileInput = document.getElementById("i_imageFile");
   if (fileInput) fileInput.value = "";
+  const adjustRow = document.getElementById("i_imgAdjustRow");
+  if (adjustRow) adjustRow.style.display = "none";
 }
 
 function saveInventory() {
@@ -14652,26 +15397,199 @@ function saveInventory() {
   D.inventory.push({
     id:Date.now(), name,
     category: document.getElementById("i_cat").value,
+    usageType: document.getElementById("i_usageType").value,
     stock, minStock: Number(document.getElementById("i_min").value)||5,
     price: Number(document.getElementById("i_price").value)||0,
     sold:0, unit: document.getElementById("i_unit").value,
-    image: pendingInventoryImage
+    image: pendingInventoryImage,
+    imagePos: {...pendingInventoryImagePos}
   });
   saveData(); closeModal("inventoryModal"); renderInventory(); toast("✅ Product added!");
   document.getElementById("i_name").value=""; document.getElementById("i_stock").value=""; document.getElementById("i_min").value=""; document.getElementById("i_price").value="";
   resetInventoryImagePicker();
 }
 
+// ==================== PRODUCT SALES ====================
+dateFilters.inventory = { preset: "thismonth", from: "", to: "" };
+function toggleInventoryFilterPanel() {
+  const el = document.getElementById("inventoryFilterPanel");
+  if (!el.dataset.built) { el.innerHTML = dateFilterPanelHTML("inventory"); el.dataset.built = "1"; }
+  el.style.display = el.style.display==="none" ? "block" : "none";
+}
+
+function openSellModal(preselectId) {
+  if (!D.inventory.length) { toast("Pehle koi product add karo!","error"); return; }
+  const sel = document.getElementById("sp_product");
+  sel.innerHTML = D.inventory.map(i=>`<option value="${i.id}" ${preselectId===i.id?"selected":""}>${i.name} (${i.stock} ${i.unit} left)</option>`).join("");
+  document.getElementById("sp_clientName").value = "";
+  document.getElementById("sp_clientPhone").value = "";
+  document.getElementById("sp_qty").value = 1;
+  document.getElementById("sp_date").value = today();
+  document.getElementById("sp_payment").value = "Cash";
+  onSellProductChange();
+  document.getElementById("sellProductModal").classList.add("open");
+}
+function onSellProductChange() {
+  const item = D.inventory.find(i=>i.id===Number(document.getElementById("sp_product").value));
+  if (!item) return;
+  document.getElementById("sp_stockNote").textContent = `${item.stock} ${item.unit} in stock • Price: ${fmtMoney(item.price)}/${item.unit}`;
+  onSellQtyChange();
+}
+function onSellQtyChange() {
+  const item = D.inventory.find(i=>i.id===Number(document.getElementById("sp_product").value));
+  if (!item) return;
+  const qty = Number(document.getElementById("sp_qty").value)||1;
+  document.getElementById("sp_amount").value = item.price * qty;
+}
+function confirmSellProduct() {
+  const item = D.inventory.find(i=>i.id===Number(document.getElementById("sp_product").value));
+  if (!item) return;
+  const qty = Number(document.getElementById("sp_qty").value);
+  const amount = Number(document.getElementById("sp_amount").value);
+  if (!qty || qty<1 || !amount) { toast("Quantity and Amount are required!","error"); return; }
+  if (qty > item.stock) { toast(`Only ${item.stock} ${item.unit} in stock!`,"error"); return; }
+
+  item.stock -= qty;
+  item.sold = (item.sold||0) + qty;
+
+  D.productSales.push({
+    id: Date.now(),
+    productId: item.id,
+    productName: item.name,
+    clientName: document.getElementById("sp_clientName").value.trim() || "Walk-in Customer",
+    clientPhone: document.getElementById("sp_clientPhone").value.trim(),
+    qty, amount,
+    date: document.getElementById("sp_date").value || today(),
+    payment: document.getElementById("sp_payment").value
+  });
+  saveData(); closeModal("sellProductModal"); renderInventory();
+  toast(`✅ Sold ${qty} ${item.unit} of ${item.name}!`);
+}
+
+function viewProductSales(productId) {
+  const item = D.inventory.find(i=>i.id===productId);
+  if (!item) return;
+  const sales = D.productSales.filter(s=>s.productId===productId).sort((a,b)=>b.date.localeCompare(a.date));
+  const totalQty = sales.reduce((s,x)=>s+Number(x.qty),0);
+  const totalAmt = sales.reduce((s,x)=>s+Number(x.amount),0);
+  document.getElementById("productSalesTitle").textContent = `🧾 ${item.name} — Sales History`;
+  document.getElementById("productSalesBody").innerHTML = `
+    <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <div style="flex:1;background:var(--cream);border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:18px;font-weight:800;">${totalQty}</div>
+        <div style="font-size:11px;color:#8b6f5e;">Units Sold</div>
+      </div>
+      <div style="flex:1;background:var(--cream);border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:18px;font-weight:800;color:var(--rose);">${fmtMoney(totalAmt)}</div>
+        <div style="font-size:11px;color:#8b6f5e;">Total Revenue</div>
+      </div>
+    </div>
+    ${sales.length ? sales.map(s=>`
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--light);font-size:13px;">
+        <div>
+          <div style="font-weight:600;">${s.clientName}${s.clientPhone?" • "+s.clientPhone:""}</div>
+          <div style="color:#8b6f5e;font-size:11px;">${fmt(s.date)} • Qty: ${s.qty} • ${s.payment}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <strong>${fmtMoney(s.amount)}</strong>
+          <button onclick="deleteProductSale(${s.id})" style="border:none;background:none;color:var(--red);">✕</button>
+        </div>
+      </div>`).join("") : `<p style="color:#8b6f5e;font-size:13px;text-align:center;padding:16px;">No sales recorded yet</p>`}
+  `;
+  document.getElementById("productSalesModal").classList.add("open");
+}
+function deleteProductSale(id) {
+  if (!confirm("Delete this sale record? (Stock will NOT be restored automatically)")) return;
+  D.productSales = D.productSales.filter(s=>s.id!==id);
+  saveData();
+  renderInventory();
+  toast("Deleted!","error");
+  closeModal("productSalesModal");
+}
+
+function renderSalesReport() {
+  const f = dateFilters.inventory;
+  const [start, end] = computeDateRange(f.preset, f.from, f.to);
+  document.getElementById("inventoryFilterLabel").textContent = "— " + dateFilterLabel(f.preset, f.from, f.to);
+  const sales = D.productSales.filter(s=>inRange(s.date,start,end));
+  const totalRev = sales.reduce((s,x)=>s+Number(x.amount),0);
+  const totalQty = sales.reduce((s,x)=>s+Number(x.qty),0);
+  const uniqueClients = new Set(sales.map(s=>s.clientPhone||s.clientName)).size;
+
+  document.getElementById("salesStats").innerHTML = `
+    <div class="stat-card" style="border-top-color:#4caf50;">
+      <div style="font-size:12px;color:#8b6f5e;">💰 Sales Revenue</div>
+      <div style="font-size:20px;font-weight:800;">${fmtMoney(totalRev)}</div>
+    </div>
+    <div class="stat-card" style="border-top-color:#2196f3;">
+      <div style="font-size:12px;color:#8b6f5e;">📦 Units Sold</div>
+      <div style="font-size:20px;font-weight:800;">${totalQty}</div>
+    </div>
+    <div class="stat-card" style="border-top-color:#9c27b0;">
+      <div style="font-size:12px;color:#8b6f5e;">👥 Buyers</div>
+      <div style="font-size:20px;font-weight:800;">${uniqueClients}</div>
+    </div>
+  `;
+
+  const sorted = [...sales].sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById("salesReportList").innerHTML = sorted.length ? sorted.map(s=>`
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--light);font-size:12.5px;">
+      <div>
+        <div style="font-weight:600;">${s.productName} <span style="color:#8b6f5e;">× ${s.qty}</span></div>
+        <div style="color:#8b6f5e;font-size:11px;">${s.clientName}${s.clientPhone?" • "+s.clientPhone:""} • ${fmt(s.date)}</div>
+      </div>
+      <strong>${fmtMoney(s.amount)}</strong>
+    </div>`).join("") : `<p style="color:#8b6f5e;font-size:13px;text-align:center;padding:14px;">No sales in this range</p>`;
+}
+
+
+let clientEditId = null;
+function editClient(id) {
+  const c = D.clients.find(x=>x.id===id);
+  if (!c) return;
+  clientEditId = id;
+  document.getElementById("c_name").value = c.name;
+  document.getElementById("c_phone").value = c.phone;
+  document.getElementById("c_email").value = c.email||"";
+  document.getElementById("c_bday").value = c.birthday||"";
+  document.getElementById("c_notes").value = c.notes||"";
+  document.getElementById("ct_modalTitle").textContent = "Edit Client";
+  document.getElementById("ct_saveBtn").textContent = "✅ Save Changes";
+  document.getElementById("clientModal").classList.add("open");
+}
+
 function saveClient() {
   const name=document.getElementById("c_name").value.trim();
   const phone=document.getElementById("c_phone").value.trim();
   if(!name||!phone){toast("Name and Phone are required!","error");return;}
-  const newClient = {id:Date.now(),name,phone,email:document.getElementById("c_email").value,birthday:document.getElementById("c_bday").value,visits:0,totalSpent:0,lastVisit:today(),notes:document.getElementById("c_notes").value};
-  D.clients.push(newClient);
-  saveData(); closeModal("clientModal"); renderClients(); toast("✅ Client added!");
+  const fields = {
+    name, phone,
+    email: document.getElementById("c_email").value,
+    birthday: document.getElementById("c_bday").value,
+    notes: document.getElementById("c_notes").value
+  };
+  let newClient;
+  if (clientEditId) {
+    const existing = D.clients.find(x=>x.id===clientEditId);
+    const oldPhone = existing.phone;
+    Object.assign(existing, fields);
+    // Keep past bookings linked to this client if their phone number changed
+    if (oldPhone && oldPhone !== phone) {
+      D.bookings.forEach(b=>{ if (b.clientPhone===oldPhone) b.clientPhone = phone; });
+    }
+    toast("✅ Client updated!");
+  } else {
+    newClient = {id:Date.now(),...fields,visits:0,totalSpent:0,lastVisit:today()};
+    D.clients.push(newClient);
+    toast("✅ Client added!");
+  }
+  saveData(); closeModal("clientModal"); renderClients();
   document.getElementById("c_name").value="";document.getElementById("c_phone").value="";document.getElementById("c_email").value="";document.getElementById("c_bday").value="";document.getElementById("c_notes").value="";
+  clientEditId = null;
+  document.getElementById("ct_modalTitle").textContent = "Add Client";
+  document.getElementById("ct_saveBtn").textContent = "✅ Save Client";
 
-  if (addClientFromBooking) {
+  if (addClientFromBooking && newClient) {
     addClientFromBooking = false;
     document.getElementById("bookingModal").classList.add("open");
     document.getElementById("b_name").value = newClient.name;
@@ -14777,8 +15695,9 @@ function renderAll() {
   if(active==="tab-appointments") renderAppointments();
   else if(active==="tab-inventory") renderInventory();
   else if(active==="tab-clients") renderClients();
-  else if(active==="tab-erp") { renderERP(); renderPurchaseLedger(); }
+  else if(active==="tab-erp") { renderERP(); renderPurchaseLedger(); renderBalanceLedger(); }
   else if(active==="tab-team") renderTeam();
+  else if(active==="tab-catalog") renderCatalog();
   else if(active==="tab-settings") renderSettings();
 }
 
@@ -14789,6 +15708,7 @@ updatePinStatusUI();
 checkPinLock();
 checkBackupReminder();
 renderAll();
+loadFromCloudOnStartup();
 
 // Auto birthday check
 const bdays = D.clients.filter(c=>c.birthday&&c.birthday.slice(5)===today().slice(5));
