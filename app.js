@@ -1,19 +1,6 @@
-// ==========================================================
-// 1. Firebase Core and Firestore Components Integration
-// ==========================================================
 import { initializeApp } from "https://gstatic.com";
-import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    query, 
-    orderBy, 
-    onSnapshot 
-} from "https://gstatic.com";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://gstatic.com";
 
-// ==========================================================
-// 2. Your Firebase Configuration (Milka Makeover)
-// ==========================================================
 const firebaseConfig = {
   apiKey: "AIzaSyBeqfL0egPyTmbxN4p_xq7Qhj8LNb-Qx3k",
   authDomain: "://firebaseapp.com",
@@ -24,57 +11,40 @@ const firebaseConfig = {
   measurementId: "G-1MN11RNKXK"
 };
 
-// Initialize Firebase & Database
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-console.log("Milka Makeover Cloud System: Firebase Connected Successfully! 🎉");
+const salonKeys = ['appointments', 'clients', 'products', 'sales', 'expenses', 'purchases', 'staff', 'services', 'settings'];
 
-// ==========================================================
-// 3. Cloud Database Operations (Save & Sync Data)
-// ==========================================================
-
-/**
- * Save new data to Firestore Cloud Database
- * @param {string} collectionName - Name of the collection (e.g., 'appointments', 'clients')
- * @param {Object} dataObject - The data to be saved
- */
-export async function saveToCloud(collectionName, dataObject) {
-    try {
-        const finalData = {
-            ...dataObject,
-            createdAt: new Date().toISOString(),
-            deviceSyncTime: new Date()
-        };
-        
-        const docRef = await addDoc(collection(db, collectionName), finalData);
-        console.log(`Data saved successfully to cloud! ID: ${docRef.id}`);
-        return { success: true, id: docRef.id };
-    } catch (error) {
-        console.error("Error saving data to cloud: ", error);
-        return { success: false, error: error.message };
+async function syncLocalToCloud() {
+    for (const key of salonKeys) {
+        const localData = localStorage.getItem(key);
+        if (localData) {
+            try {
+                await setDoc(doc(db, "milka_salon_data", key), {
+                    data: JSON.parse(localData),
+                    lastUpdated: new Date().toISOString()
+                });
+            } catch (e) { console.error(e); }
+        }
     }
 }
 
-/**
- * Realtime Sync Data across all devices
- * @param {string} collectionName - Name of the collection
- * @param {Function} callback - Function that triggers automatically when data changes
- */
-export function syncDataWithCloud(collectionName, callback) {
-    const q = query(collection(db, collectionName), orderBy("createdAt", "desc"));
-    
-    return onSnapshot(q, (snapshot) => {
-        const dataList = [];
-        snapshot.forEach((doc) => {
-            dataList.push({ id: doc.id, ...doc.data() });
+function listenToCloudChanges() {
+    salonKeys.forEach((key) => {
+        onSnapshot(doc(db, "milka_salon_data", key), (docSnap) => {
+            if (docSnap.exists()) {
+                const cloudContent = docSnap.data().data;
+                const localContent = localStorage.getItem(key);
+                if (JSON.stringify(cloudContent) !== localContent) {
+                    localStorage.setItem(key, JSON.stringify(cloudContent));
+                    window.dispatchEvent(new Event('storage'));
+                }
+            }
         });
-        console.log(`Live sync active for ${collectionName}. Total items: ${dataList.length}`);
-        callback(dataList);
-    }, (error) => {
-        console.error("Error with live sync: ", error);
     });
 }
 
-// Expose to global scope for application access
-window.MilkaCloud = { saveToCloud, syncDataWithCloud };
+window.addEventListener('click', () => { setTimeout(syncLocalToCloud, 500); });
+window.addEventListener('keyup', () => { setTimeout(syncLocalToCloud, 500); });
+listenToCloudChanges();
