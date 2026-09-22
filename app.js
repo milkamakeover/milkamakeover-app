@@ -1,7 +1,6 @@
 import { initializeApp } from "https://gstatic.com";
 import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://gstatic.com";
 
-// Firebase Configuration (Milka Makeover)
 const firebaseConfig = {
   apiKey: "AIzaSyBeqfL0egPyTmbxN4p_xq7Qhj8LNb-Qx3k",
   authDomain: "://firebaseapp.com",
@@ -15,23 +14,36 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const repoName = "milkamakeover-app";
 const salonKeys = ['appointments', 'clients', 'products', 'sales', 'expenses', 'purchases', 'staff', 'services', 'settings'];
 
-// आपके HTML के मूल सिंक बटन (UI) को कंट्रोल करने का फंक्शन
-function forceUIRefresh(isSuccess, message = "") {
+function forceUIRefresh(isSuccess) {
     const syncBtn = document.getElementById('sync-btn') || document.querySelector('[onclick*="sync"]');
     if (syncBtn) {
         if (isSuccess) {
-            syncBtn.className = "nav-btn sync-success";
             syncBtn.style.backgroundColor = "#25d366";
             syncBtn.innerHTML = `🟢 Synced`;
         } else {
-            syncBtn.className = "nav-btn sync-failed";
             syncBtn.style.backgroundColor = "#e53935";
-            syncBtn.innerHTML = `🔴 ${message || 'Sync failed'}`;
+            syncBtn.innerHTML = `🔴 Sync failed`;
         }
     }
+}
+
+// ऐप के इंटरफ़ेस को जबरदस्ती अपडेट (DOM Reload) करने का फ़ंक्शन
+function triggerAppRender() {
+    window.dispatchEvent(new Event('storage'));
+    
+    // आपके HTML कोड के संभावित सभी मुख्य रेंडर फ़ंक्शंस को कॉल करना
+    const functionsToCall = [
+        'renderAll', 'loadData', 'renderAppointments', 'renderClients', 
+        'initApp', 'checkPinlock', 'updateDashboard', 'showData'
+    ];
+    
+    functionsToCall.forEach(funcName => {
+        if (typeof window[funcName] === "function") {
+            try { window[funcName](); } catch(e) { console.log(funcName + " load skip"); }
+        }
+    });
 }
 
 // 1. फ़ंक्शन: लोकल डेटा को फायरबेस पर अपलोड करना
@@ -41,14 +53,12 @@ async function syncLocalToCloud() {
         const localData = localStorage.getItem(key);
         if (localData) {
             try {
-                await setDoc(doc(db, repoName, key), {
+                await setDoc(doc(db, "salon_records", key), {
                     data: JSON.parse(localData),
                     lastUpdated: new Date().toISOString()
                 });
                 successCount++;
-            } catch (e) { 
-                console.error("Upload error:", e); 
-            }
+            } catch (e) { console.error(e); }
         } else {
             successCount++;
         }
@@ -56,60 +66,44 @@ async function syncLocalToCloud() {
     forceUIRefresh(successCount === salonKeys.length);
 }
 
-// 2. फ़ंक्शन: ऐप चालू होते ही क्लाउड से डेटा तुरंत खींचना
+// 2. फ़ंक्शन: ऐप चालू होते ही डेटा डाउनलोड करके ज़बरदस्ती रीड कराना
 async function loadFromCloudOnStartup() {
     let loadedAny = false;
     for (const key of salonKeys) {
         try {
-            const docSnap = await getDoc(doc(db, repoName, key));
+            const docSnap = await getDoc(doc(db, "salon_records", key));
             if (docSnap.exists()) {
                 const cloudContent = docSnap.data().data;
                 localStorage.setItem(key, JSON.stringify(cloudContent));
                 loadedAny = true;
             }
-        } catch (e) { 
-            console.error("Startup load error:", e); 
-        }
+        } catch (e) { console.error(e); }
     }
     
-    // ऐप के इंटरफ़ेस और रेंडर फंक्शन्स को ट्रिगर करना
-    window.dispatchEvent(new Event('storage'));
-    if (typeof window.renderAll === "function") { window.renderAll(); }
-    if (typeof window.checkPinlock === "function") { window.checkPinlock(); }
-    
-    if (loadedAny) {
-        forceUIRefresh(true);
-    }
+    triggerAppRender();
+    if (loadedAny) { forceUIRefresh(true); }
 }
 
-// 3. फ़ंक्शन: लाइव बदलावों को रियलटाइम में सुनना
+// 3. फ़ंक्शन: लाइव बदलावों को रियलटाइम सिंक करना
 function listenToCloudChanges() {
     salonKeys.forEach((key) => {
-        onSnapshot(doc(db, repoName, key), (docSnap) => {
+        onSnapshot(doc(db, "salon_records", key), (docSnap) => {
             if (docSnap.exists()) {
                 const cloudContent = docSnap.data().data;
                 const localContent = localStorage.getItem(key);
                 if (JSON.stringify(cloudContent) !== localContent) {
                     localStorage.setItem(key, JSON.stringify(cloudContent));
-                    window.dispatchEvent(new Event('storage'));
-                    if (typeof window.renderAll === "function") { window.renderAll(); }
+                    triggerAppRender();
                     forceUIRefresh(true);
                 }
             }
-        }, (error) => {
-            console.error("Snapshot error:", error);
-            forceUIRefresh(false);
-        });
+        }, () => { forceUIRefresh(false); });
     });
 }
 
-// गिटहब रेपो और क्लिक इवेंट्स को आपस में बांधना
 window.addEventListener('click', () => { setTimeout(syncLocalToCloud, 600); });
 window.addEventListener('keyup', () => { setTimeout(syncLocalToCloud, 600); });
 
-// सिस्टम चालू करें
 loadFromCloudOnStartup().then(() => {
     listenToCloudChanges();
-}).catch(() => {
-    forceUIRefresh(false);
-});
+}).catch(() => { forceUIRefresh(false); });
