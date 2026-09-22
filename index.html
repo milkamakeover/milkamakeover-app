@@ -15715,6 +15715,7 @@ const bdays = D.clients.filter(c=>c.birthday&&c.birthday.slice(5)===today().slic
 if(bdays.length) {
   setTimeout(()=>toast(`🎂 Today is ${bdays.map(c=>c.name.split(" ")[0]).join(", ")}\'s birthday! Send a WhatsApp wish!`),1500);
 }
+<script type="module" src="app.js"></script>
 </script>
 </body>
 </html>
